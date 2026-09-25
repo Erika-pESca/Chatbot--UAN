@@ -1,0 +1,1 @@
+$path = "c:\Users\USUARIO\Documents\practicas Erika Pesca\chatbot\configuracion_chat.php"; $content = [System.IO.File]::ReadAllText($path, [System.Text.Encoding]::Default); [System.IO.File]::WriteAllText($path, $content, [System.Text.Encoding]::UTF8)
