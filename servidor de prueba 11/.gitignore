@@ -1,0 +1,20 @@
+# Archivos de registro (logs)
+*.log
+error_log
+diagnostico_log.txt
+
+# Archivos temporales o de prueba (scripts que creamos para diagnosticar)
+test_*.php
+diagnostico_stream.php
+scratch_*.ps1
+
+# Configuraciones de editores de código (como VS Code)
+.vscode/
+.idea/
+
+# Archivos generados por el sistema operativo
+.DS_Store
+Thumbs.db
+
+# Credenciales y archivos secretos
+claves.php

@@ -1,0 +1,2169 @@
+<script>
+    /**
+     * Función autoejecutable (IIFE - Immediately Invoked Function Expression)
+     * que inicializa el chatbot de la UAN en la página donde se incruste.
+     * Esto evita que las variables y funciones internas choquen con otros scripts en la misma página.
+     */
+    (function initChatbot() {
+        const EMERGENCIA_APAGAR_CHAT_NUEVOS = false; // Cambiar a true para desaparecer el bot a usuarios nuevos
+        const EMERGENCIA_APAGAR_BASE_DATOS = false;  // Cambiar a true para dejar de guardar chats en la base de datos
+        
+        const BASE_DOMAIN = 'https://www.uan.edu.co'; // CAMBIAR A URL DE PRODUCCION
+        const staticFallback = {
+                        pregrado: [
+                            { text: 'Administración de Empresas (Bogotá)',        url: 'https://www.uan.edu.co/administracion-de-empresas' },
+                            { text: 'Administración de Empresas (Neiva)',          url: 'https://www.uan.edu.co/administracion-de-empresas' },
+                            { text: 'Administración de Empresas (Tunja)',          url: 'https://www.uan.edu.co/administracion-de-empresas' },
+                            { text: 'Administración de Empresas (Cúcuta)',         url: 'https://www.uan.edu.co/administracion-de-empresas' },
+                            { text: 'Administración de Empresas (Ibagué)',         url: 'https://www.uan.edu.co/administracion-de-empresas' },
+                            { text: 'Administración de Empresas (Villavicencio)',  url: 'https://www.uan.edu.co/administracion-de-empresas' },
+                            { text: 'Arquitectura (Bogotá)',                       url: 'https://www.uan.edu.co/arquitectura' },
+                            { text: 'Contaduría Pública (Bogotá)',                 url: 'https://www.uan.edu.co/contaduria-publica' },
+                            { text: 'Contaduría Pública (Neiva)',                  url: 'https://www.uan.edu.co/contaduria-publica' },
+                            { text: 'Contaduría Pública (Tunja)',                  url: 'https://www.uan.edu.co/contaduria-publica' },
+                            { text: 'Derecho (Bogotá)',                            url: 'https://www.uan.edu.co/derecho' },
+                            { text: 'Derecho (Cúcuta)',                            url: 'https://www.uan.edu.co/derecho' },
+                            { text: 'Diseño Gráfico (Bogotá)',                     url: 'https://www.uan.edu.co/diseno-grafico' },
+                            { text: 'Enfermería (Bogotá)',                         url: 'https://www.uan.edu.co/enfermeria' },
+                            { text: 'Ingeniería Ambiental (Bogotá)',               url: 'https://www.uan.edu.co/ingenieria-ambiental' },
+                            { text: 'Ingeniería Biomédica (Bogotá)',               url: 'https://www.uan.edu.co/ingenieria-biomedica' },
+                            { text: 'Ingeniería Civil (Bogotá)',                   url: 'https://www.uan.edu.co/ingenieria-civil' },
+                            { text: 'Ingeniería de Sistemas y Computación (Bogotá)', url: 'https://www.uan.edu.co/ingenieria-de-sistemas' },
+                            { text: 'Ingeniería de Software (Bogotá)',             url: 'https://www.uan.edu.co/ingenieria-de-software' },
+                            { text: 'Ingeniería Industrial (Bogotá)',              url: 'https://www.uan.edu.co/ingenieria-industrial' },
+                            { text: 'Medicina Veterinaria y Zootecnia (Bogotá)',   url: 'https://www.uan.edu.co/medicina-veterinaria-y-zootecnia' },
+                            { text: 'Nutrición y Dietética (Bogotá)',              url: 'https://www.uan.edu.co/nutricion-y-dietetica' },
+                            { text: 'Odontología (Bogotá)',                        url: 'https://www.uan.edu.co/odontologia' },
+                            { text: 'Odontología (Neiva)',                         url: 'https://www.uan.edu.co/odontologia' },
+                            { text: 'Psicología (Bogotá)',                         url: 'https://www.uan.edu.co/psicologia' },
+                            { text: 'Psicología (Cúcuta)',                         url: 'https://www.uan.edu.co/psicologia' }
+                        ],
+                        posgrado: [
+                            { text: 'Maestría en Educación (Tunja)',              url: 'https://www.uan.edu.co/maestria-en-educacion' },
+                            { text: 'Ver Oferta de Posgrados',                    url: 'https://www.uan.edu.co/posgrados' }
+                        ],
+                        sede: []
+                    };
+                    
+
+        // Evita que el chatbot se inicialice múltiples veces si el script
+                                                                                            
+        if (document.getElementById('uan-chatbot-root')) return;
+
+        // ==========================================
+        // FRENO DE EMERGENCIA 1: Ocultar chat a nuevos
+        // ==========================================
+        if (EMERGENCIA_APAGAR_CHAT_NUEVOS && !localStorage.getItem('uan_chat_session_data')) {
+            return; // Aborta la carga del chat. Los que ya tienen sesión pasan de largo.
+        }
+
+        // Crea el contenedor principal del chatbot para el botón (capturado por Joomla)
+        const wrapper = document.createElement('div');
+        wrapper.id = 'uan-chatbot-root';
+        wrapper.className = 'uan-chatbot-scope';
+
+        // Crea el contenedor libre para la ventana del chat (inmune al CSS de Joomla)
+        const windowWrapper = document.createElement('div');
+        windowWrapper.id = 'uan-chatbot-window-root';
+        windowWrapper.className = 'uan-chatbot-scope';
+
+        // Inyecta el HTML y CSS
+        const htmlContent = `
+<style>
+    /* =========================================
+       Estilos del Chatbot UAN - Mejorado y 100% Responsivo
+       ========================================= */
+    .uan-chatbot-scope {
+        --primary-color: #032177;
+        --secondary-color: #0056b3;
+        --accent-color: #FFD700;
+        --success-color: #10b981;
+        --text-color: #334155;
+        --bg-color: #ffffff;
+        --chat-bg: #f4f7f6;
+        --chip-bg: #ffffff;
+        --chip-border: #cbd5e1;
+        --chip-text: #1e293b;
+        --chip-hover-bg: #f1f5f9;
+        --chip-hover-border: #032177;
+
+        /* Variables de tamaño reutilizadas para que TODO escale desde un mismo lugar */
+        --toggle-size: clamp(52px, 14vw, 65px);
+        --gap-toggle-window: 14px;
+        --window-width: min(380px, calc(100vw - 85px)); /* Ancho restando el espacio del menú izquierdo */
+        --window-max-height: min(650px, calc(100dvh - var(--toggle-size) - var(--gap-toggle-window) - 32px));
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+        --safe-left: env(safe-area-inset-left, 0px);
+    }
+
+    .uan-chatbot-scope *,
+    .uan-chatbot-scope *::before,
+    .uan-chatbot-scope *::after {
+        box-sizing: border-box;
+    }
+
+    /* Contenedor: flex en columna, así la ventana (1er hijo en el HTML)
+       queda naturalmente ARRIBA del botón (2do hijo) sin offsets mágicos */
+    .uan-chatbot-scope .chatbot-container {
+        font-family: 'Inter', system-ui, sans-serif;
+        position: fixed;
+        bottom: calc(20px + var(--safe-bottom));
+        left: calc(16px + var(--safe-left));
+        z-index: 2147483647 !important;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start; /* Alineado a la izquierda */
+        gap: var(--gap-toggle-window);
+        max-width: calc(100vw - 32px);
+        pointer-events: none; /* el contenedor no bloquea clics; los hijos se reactivan abajo */
+    }
+    .uan-chatbot-scope .chatbot-container > * {
+        pointer-events: auto;
+    }
+
+    .uan-chatbot-scope .chatbot-toggle {
+        width: var(--toggle-size);
+        height: var(--toggle-size);
+        border-radius: 50%;
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 10px 25px rgba(0, 59, 115, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        flex-shrink: 0;
+        order: 2; /* fuerza visualmente que quede debajo, independiente del orden en el HTML */
+    }
+    .uan-chatbot-scope .chatbot-toggle:hover {
+        transform: scale(1.05) translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0, 59, 115, 0.5);
+    }
+    .uan-chatbot-scope .chatbot-toggle svg.close-icon {
+        width: 45%;
+        height: 45%;
+        fill: currentColor;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .uan-chatbot-scope .chatbot-toggle img.chat-icon {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .uan-chatbot-scope .chatbot-toggle.active .chat-icon { opacity: 0; position: absolute; transform: scale(0) rotate(90deg); }
+    .uan-chatbot-scope .chatbot-toggle .close-icon { opacity: 0; position: absolute; transform: rotate(-90deg); }
+    .uan-chatbot-scope .chatbot-toggle.active .close-icon { opacity: 1; position: static; transform: rotate(0); }
+
+    /* Ventana del chat: usa position absolute para anclarse encima del botón
+       sin interferir con el layout flex, evitando el bug del margen negativo */
+    .chat-window {
+        position: fixed !important;
+        bottom: 25px !important; /* Separación fija desde el fondo de la pantalla */
+        left: 80px !important;   /* Separación fija desde la izquierda para evitar el menú */
+        z-index: 2147483647 !important;
+        width: var(--window-width);
+        height: auto;
+        min-height: 250px;
+        max-height: var(--window-max-height);
+        background: var(--bg-color);
+        border-radius: 20px;
+        box-shadow: 0 15px 50px rgba(0, 0, 0, 0.25);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(10px) scale(0.95);
+        transition: all 0.35s cubic-bezier(0.25, 0.8, 0.25, 1);
+        transform-origin: bottom left; /* Animación desde la izquierda */
+    }
+    /* Cuando está cerrada, simplemente se oculta y transforma, no ocupa espacio gracias a position absolute */
+    .chat-window:not(.active) {
+        pointer-events: none;
+    }
+    .chat-window.active {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0) scale(1);
+    }
+
+    .uan-chatbot-scope .chat-header {
+        background: var(--primary-color);
+        color: white;
+        padding: clamp(10px, 3vw, 15px) clamp(14px, 4vw, 20px);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: relative;
+        z-index: 3;
+        flex-shrink: 0;
+    }
+    .uan-chatbot-scope .inner-close-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 5px;
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.8;
+        transition: opacity 0.3s;
+    }
+    .uan-chatbot-scope .inner-close-btn:hover {
+        opacity: 1;
+    }
+    .uan-chatbot-scope .header-avatar-container { position: relative; flex-shrink: 0; }
+    .uan-chatbot-scope .header-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid white;
+        object-fit: cover;
+    }
+    .uan-chatbot-scope .online-dot {
+        position: absolute;
+        bottom: 0;
+        right: 0;
+        width: 12px;
+        height: 12px;
+        background-color: #22c55e;
+        border: 2px solid var(--primary-color);
+        border-radius: 50%;
+    }
+    .uan-chatbot-scope .header-info { flex: 1; min-width: 0; }
+    .uan-chatbot-scope .header-info h3 {
+        margin: 0;
+        font-size: clamp(0.95rem, 3.5vw, 1.1rem);
+        font-weight: 700;
+        font-family: 'Arial', sans-serif;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .uan-chatbot-scope .header-info p {
+        margin: 2px 0 0;
+        font-size: 0.8rem;
+        color: #bae6fd;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .uan-chatbot-scope .header-info p::before { content: ""; display: inline-block; width: 6px; height: 6px; background: #22c55e; border-radius: 50%; flex-shrink: 0; }
+
+    .uan-chatbot-scope .chat-body {
+        flex: 1 1 auto;
+        min-height: 0; /* clave para que el scroll interno funcione dentro de flex */
+        padding: clamp(12px, 4vw, 20px);
+        background: var(--chat-bg);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        scroll-behavior: smooth;
+    }
+
+    .uan-chatbot-scope .message {
+        max-width: 88%;
+        padding: 12px 16px;
+        font-size: clamp(0.85rem, 3.5vw, 0.95rem);
+        line-height: 1.5;
+        animation: fadeIn 0.3s ease forwards;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        position: relative;
+    }
+
+    .uan-chatbot-scope .bot-message-row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        align-self: flex-start;
+        max-width: 95%;
+    }
+    .uan-chatbot-scope .bot-avatar-chat {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        background: white;
+        border: 1px solid #e2e8f0;
+        flex-shrink: 0;
+    }
+
+    .uan-chatbot-scope .message.bot {
+        background: white;
+        color: var(--text-color);
+        border: 1px solid #e2e8f0;
+        border-radius: 15px;
+        border-top-left-radius: 2px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+        align-self: flex-start;
+        border-left: 3px solid var(--primary-color);
+        max-width: 100%;
+        padding: clamp(10px, 3vw, 14px) clamp(12px, 4vw, 18px);
+    }
+    .uan-chatbot-scope .message.user {
+        background: var(--secondary-color);
+        color: white;
+        align-self: flex-end;
+        border-radius: 15px 15px 4px 15px;
+        box-shadow: 0 2px 8px rgba(0, 80, 158, 0.2);
+    }
+
+    .uan-chatbot-scope .typing-cursor {
+        display: inline-block;
+        color: var(--secondary-color);
+        animation: uan-blink-cursor 0.7s infinite;
+        font-weight: bold;
+        margin-left: 2px;
+        vertical-align: baseline;
+    }
+    @keyframes uan-blink-cursor {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+    }
+
+    .uan-chatbot-scope .chat-link-btn {
+        display: inline-block;
+        margin-top: 12px;
+        padding: 10px 18px;
+        background: var(--success-color);
+        color: white !important;
+        text-decoration: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 8px;
+        margin-bottom: 5px;
+        transition: background 0.2s, transform 0.2s;
+        box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+        animation: pulseLink 1.5s infinite;
+    }
+    .uan-chatbot-scope .chat-link-btn:hover {
+        background: #059669;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 10px rgba(16, 185, 129, 0.3);
+        animation: none;
+    }
+
+    .uan-chatbot-scope .feedback-container {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+        align-self: flex-end;
+    }
+    .uan-chatbot-scope .feedback-btn {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: transform 0.2s, opacity 0.2s, color 0.2s;
+        padding: 4px;
+        color: #94a3b8; /* Gris azulado neutro */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .uan-chatbot-scope .feedback-btn svg {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        transition: fill 0.2s;
+    }
+    .uan-chatbot-scope .feedback-btn:hover {
+        opacity: 1;
+        transform: scale(1.15);
+        color: var(--secondary-color);
+    }
+    .uan-chatbot-scope .feedback-btn.active-like { 
+        opacity: 1; 
+        color: var(--success-color); 
+        transform: scale(1.15); 
+    }
+    .uan-chatbot-scope .feedback-btn.active-like svg {
+        fill: rgba(16, 185, 129, 0.2);
+    }
+    .uan-chatbot-scope .feedback-btn.active-dislike { 
+        opacity: 1; 
+        color: #ef4444; 
+        transform: scale(1.15); 
+    }
+    .uan-chatbot-scope .feedback-btn.active-dislike svg {
+        fill: rgba(239, 68, 68, 0.2);
+    }
+    .uan-chatbot-scope .feedback-btn:disabled { cursor: default; }
+
+    @keyframes pulseLink {
+        0% { transform: scale(1); box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2); }
+        50% { transform: scale(1.05); box-shadow: 0 6px 15px rgba(16, 185, 129, 0.5); }
+        100% { transform: scale(1); box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2); }
+    }
+
+    /* =========================================
+       Contenedor de botones (menús) — ahora responsivo con flex
+       ========================================= */
+    .uan-chatbot-scope .options-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 5px;
+        animation: fadeIn 0.3s ease forwards;
+        width: 100%;
+        max-width: 100%;
+        align-self: flex-start;
+    }
+
+    .uan-chatbot-scope .chip-btn {
+        flex: 1 1 calc(50% - 8px); /* Para que tomen mitad y mitad si pueden */
+        background: #f0f7ff;
+        border: 1px solid #0056b3;
+        color: #0056b3;
+        padding: 8px 12px;
+        border-radius: 15px;
+        font-size: clamp(0.75rem, 3vw, 0.85rem);
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        line-height: 1.3;
+        gap: 6px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        min-height: 44px;
+    }
+    .uan-chatbot-scope .chip-btn:hover {
+        background: var(--secondary-color);
+        border-color: var(--secondary-color);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 86, 179, 0.2);
+    }
+    .uan-chatbot-scope .chip-btn.color-naranja { background: #fff0e6; border-color: #ff9248; color: #d65a00; }
+    .uan-chatbot-scope .chip-btn.color-naranja:hover { background: #ff9248; color: white; }
+
+    .uan-chatbot-scope .chip-btn.color-mango { background: #fff9e6; border-color: #ffc107; color: #b38600; }
+    .uan-chatbot-scope .chip-btn.color-mango:hover { background: #ffc107; color: white; }
+
+    .uan-chatbot-scope .chip-btn.color-pera { background: #eef8ec; border-color: #6dbb58; color: #3b7c2a; }
+    .uan-chatbot-scope .chip-btn.color-pera:hover { background: #6dbb58; color: white; }
+
+    .uan-chatbot-scope .chip-btn.color-uva { background: #f4ecf8; border-color: #9d58bb; color: #5f2a7c; }
+    .uan-chatbot-scope .chip-btn.color-uva:hover { background: #9d58bb; color: white; }
+
+    .uan-chatbot-scope .chip-btn.color-fresa { background: #fdf0f2; border-color: #e46075; color: #a32236; }
+    .uan-chatbot-scope .chip-btn.color-fresa:hover { background: #e46075; color: white; }
+
+    .uan-chatbot-scope .chip-btn.back-btn {
+        background: white;
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+        flex: 1 1 100%; /* Ocupa todo el ancho disponible */
+        margin-top: 4px;
+    }
+    .uan-chatbot-scope .chip-btn.back-btn:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .uan-chatbot-scope .options-container.disabled {
+        display: none;
+    }
+
+    .uan-chatbot-scope .char-limit-warning {
+        position: absolute;
+        bottom: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #ef4444;
+        color: white;
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: bold;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        z-index: 1000;
+        box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+        white-space: nowrap;
+    }
+    .uan-chatbot-scope .char-limit-warning.show {
+        opacity: 1;
+    }
+
+    /* Barra de Acciones Rápidas (Píldoras) */
+    .uan-chatbot-scope .chat-quick-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px clamp(10px, 3vw, 15px) 2px;
+        background: white;
+        border-top: 1px solid #f1f5f9;
+        overflow-x: auto;
+        white-space: nowrap;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        flex-shrink: 0;
+    }
+    .uan-chatbot-scope .chat-quick-actions::-webkit-scrollbar {
+        display: none;
+    }
+    .uan-chatbot-scope .quick-action-btn {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        color: #475569;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+        user-select: none;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .uan-chatbot-scope .quick-action-btn:hover {
+        background: #e2e8f0;
+        border-color: var(--secondary-color);
+        color: var(--primary-color);
+        transform: translateY(-1px);
+    }
+    .uan-chatbot-scope .quick-action-btn:active {
+        transform: scale(0.96);
+    }
+
+    .uan-chatbot-scope .chat-footer {
+        padding: 12px clamp(10px, 3vw, 15px) calc(12px + var(--safe-bottom));
+        background: white;
+        border-top: 1px solid #e2e8f0;
+        display: flex;
+        gap: 10px;
+        position: relative;
+        z-index: 2;
+        flex-shrink: 0;
+    }
+    .uan-chatbot-scope .chat-input {
+        flex: 1;
+        min-width: 0;
+        padding: 14px 20px !important;
+        border: 1px solid #e2e8f0 !important;
+        background: #f8fafc !important;
+        border-radius: 30px !important;
+        font-size: 15px !important;
+        outline: none !important;
+        transition: all 0.3s ease !important;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important;
+    }
+    .uan-chatbot-scope .chat-input:focus { border-color: var(--secondary-color); background: white; box-shadow: 0 0 0 3px rgba(0, 80, 158, 0.1); }
+    .uan-chatbot-scope .send-btn {
+        background: var(--secondary-color);
+        color: white;
+        border: none;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.2s, transform 0.2s;
+        flex-shrink: 0;
+    }
+    .uan-chatbot-scope .send-btn:hover {
+        background: var(--primary-color);
+        transform: scale(1.05);
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    .uan-chatbot-scope .chat-body::-webkit-scrollbar { width: 6px; }
+    .uan-chatbot-scope .chat-body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    .uan-chatbot-scope .chat-body::-webkit-scrollbar-track { background: transparent; }
+
+    .uan-chatbot-scope .typing-indicator {
+        display: flex;
+        gap: 4px;
+        padding: 12px 16px;
+        background: white;
+        border-radius: 15px;
+        border-bottom-left-radius: 5px;
+        width: fit-content;
+        border: 1px solid #e2e8f0;
+        margin-bottom: 5px;
+    }
+    .uan-chatbot-scope .typing-indicator span {
+        width: 8px;
+        height: 8px;
+        background: #94a3b8;
+        border-radius: 50%;
+        animation: typing 1s infinite ease-in-out;
+    }
+    .uan-chatbot-scope .typing-indicator span:nth-child(1) { animation-delay: 0s; }
+    .uan-chatbot-scope .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .uan-chatbot-scope .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typing {
+        0%, 100% { transform: translateY(0); opacity: 0.5; }
+        50% { transform: translateY(-4px); opacity: 1; }
+    }
+
+    /* =========================================
+       Pantallas MUY pequeñas (<380px de ancho, ej. iPhone SE, 320px)
+       ========================================= */
+    @media screen and (max-width: 380px) {
+        .uan-chatbot-scope {
+            --window-width: calc(100vw - 24px);
+        }
+        .uan-chatbot-scope .chatbot-container {
+            left: calc(12px + var(--safe-left));
+            bottom: calc(14px + var(--safe-bottom));
+        }
+        .uan-chatbot-scope .chip-btn {
+            flex: 1 1 100%; /* Un solo botón por fila: nada se corta ni se aplasta */
+        }
+    }
+
+    /* =========================================
+       Tablets y móviles en general (<=768px)
+       ========================================= */
+    @media screen and (max-width: 768px) {
+        .uan-chatbot-scope {
+            --window-width: calc(100vw - 100px);
+        }
+    }
+
+    /* =========================================
+       Pantallas de poca altura (móvil en horizontal, ventanas bajas)
+       ========================================= */
+    @media screen and (max-height: 560px) {
+        .uan-chatbot-scope {
+            --window-max-height: calc(100dvh - var(--toggle-size) - 24px);
+        }
+        .chat-window {
+            min-height: 180px;
+        }
+    }
+
+    /* Soporte para navegadores sin dvh: fallback ya cubierto por vh implícito
+       via 100vh si dvh no es reconocido (los navegadores modernos sí lo soportan) */
+    
+    /* =========================================
+       Buscador con autocompletado dentro del chat
+       ========================================= */
+    .uan-chatbot-scope .autocomplete-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--primary-color);
+        letter-spacing: 0.01em;
+        margin-bottom: 2px;
+        display: block;
+    }
+    .uan-chatbot-scope .autocomplete-wrapper {
+        margin-top: 12px;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        animation: fadeIn 0.3s ease forwards;
+        position: relative;
+    }
+    .uan-chatbot-scope .autocomplete-wrapper.disabled {
+        opacity: 0.6;
+        pointer-events: none;
+    }
+    .uan-chatbot-scope .autocomplete-search-input {
+        width: 100%;
+        padding: 10px 36px 10px 14px;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 10px;
+        background-color: white;
+        color: var(--text-color);
+        font-size: 0.88rem;
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        font-family: inherit;
+    }
+    .uan-chatbot-scope .autocomplete-search-input:focus {
+        border-color: var(--secondary-color);
+        box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.12);
+    }
+    .uan-chatbot-scope .autocomplete-search-input::placeholder {
+        color: #94a3b8;
+    }
+    .uan-chatbot-scope .autocomplete-icon {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: #94a3b8;
+    }
+    .uan-chatbot-scope .autocomplete-results {
+        width: 100%;
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+        max-height: 200px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+    }
+    .uan-chatbot-scope .autocomplete-results:empty {
+        display: none;
+    }
+    .uan-chatbot-scope .autocomplete-item {
+        padding: 9px 14px;
+        font-size: 0.85rem;
+        color: var(--text-color);
+        cursor: pointer;
+        transition: background 0.15s;
+        border-bottom: 1px solid #f1f5f9;
+        line-height: 1.35;
+    }
+    .uan-chatbot-scope .autocomplete-item:last-child {
+        border-bottom: none;
+    }
+    .uan-chatbot-scope .autocomplete-item:hover,
+    .uan-chatbot-scope .autocomplete-item:focus {
+        background: #f0f7ff;
+        color: var(--secondary-color);
+    }
+    .uan-chatbot-scope .autocomplete-item strong {
+        color: var(--secondary-color);
+    }
+    .uan-chatbot-scope .autocomplete-empty {
+        padding: 10px 14px;
+        font-size: 0.83rem;
+        color: #94a3b8;
+        text-align: center;
+    }
+</style>
+
+<!-- Estructura HTML principal del Chatbot -->
+<div class="chatbot-container">
+    <!-- El botón flotante -->
+    <button class="chatbot-toggle" id="chatToggle">
+        <img src="/images/admin/ChatBot/GnosUAN-small.png" alt="Chat" class="chat-icon">
+        <svg class="close-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z"/></svg>
+    </button>
+</div>`;
+
+        windowWrapper.innerHTML = `
+    <div class="chat-window" id="chatWindow">
+
+        <!-- Encabezado -->
+        <div class="chat-header">
+            <div class="header-avatar-container">
+                <img src="/images/admin/ChatBot/GnosUAN-small.png" alt="Avatar" class="header-avatar" id="avatarImage">
+                <div class="online-dot"></div>
+            </div>
+            <div class="header-info">
+                <h3>Asistente UAN</h3>
+                <p>En línea</p>
+            </div>
+            <button class="inner-close-btn" id="innerCloseBtn" title="Cerrar chat">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+
+        <!-- Área de mensajes -->
+        <div class="chat-body" id="chatBody">
+        </div>
+
+        <!-- Barra de Acciones Rápidas (Píldoras) -->
+        <div class="chat-quick-actions" id="chatQuickActions">
+            <button type="button" class="quick-action-btn" id="btnQuickHome" title="Ver opciones y roles">
+                <span>🏠</span> Menú principal
+            </button>
+        </div>
+
+        <!-- Pie de página (Entrada de texto) -->
+        <div class="chat-footer">
+            <div id="charLimitWarning" class="char-limit-warning">⚠️ Límite de 250 caracteres alcanzado</div>
+            <input type="text" id="chatInput" class="chat-input" placeholder="Escribe tu mensaje..." maxlength="250">
+            <button class="send-btn" id="sendBtn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+        </div>
+    </div>
+
+</div>`;
+
+        // Añade el contenedor del botón y la ventana al elemento raíz (html)
+        // Esto evita que transformaciones, scrolls o márgenes en el body (muy comunes en Joomla)
+        // corten o desplacen el chatbot o su botón flotante fuera de la pantalla.
+        wrapper.innerHTML = htmlContent;
+        document.documentElement.appendChild(wrapper);
+        document.documentElement.appendChild(windowWrapper);
+
+        // Referencias a los elementos del DOM recién creados
+        const chatWindow = document.getElementById('chatWindow');
+        const chatToggle = document.getElementById('chatToggle');
+        const chatBody = document.getElementById('chatBody');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const innerCloseBtn = document.getElementById('innerCloseBtn');
+        const btnQuickHome = document.getElementById('btnQuickHome');
+
+        if (btnQuickHome) {
+            btnQuickHome.addEventListener('click', () => {
+                if (isProcessing) return;
+                const target = 'main';
+                
+                // Toggle: Si el menú principal ya está abierto al final y activo, lo cerramos
+                const lastChild = chatBody.lastElementChild;
+                if (lastChild && lastChild.classList.contains('options-container') && lastChild.dataset.menuId === target && !lastChild.classList.contains('disabled')) {
+                    lastChild.remove();
+                    return;
+                }
+                
+                currentProfileMenu = 'main';
+                localStorage.setItem('uan_chat_profile', 'main');
+                renderMenu('main');
+            });
+        }
+
+        // ==========================================
+        // GESTIÓN DE SESIÓN Y LOCALSTORAGE (48 HORAS)
+        // ==========================================
+        function manageSession() {
+            const EXPIRATION_HOURS = 48;
+            const now = new Date().getTime();
+            let sessionData = localStorage.getItem('uan_chat_session_data');
+            
+            if (sessionData) {
+                try {
+                    sessionData = JSON.parse(sessionData);
+                    const hoursPassed = (now - sessionData.timestamp) / (1000 * 60 * 60);
+                    
+                    if (hoursPassed > EXPIRATION_HOURS) {
+                        // Expiró: limpiamos el localStorage
+                        localStorage.removeItem('uan_chat_session_data');
+                        localStorage.removeItem('uan_chat_history');
+                        localStorage.removeItem('uan_chat_profile');
+                        localStorage.removeItem('uan_chat_lastMenu');
+                        return createNewSession(now);
+                    } else {
+                        return sessionData.id;
+                    }
+                } catch(e) {
+                    return createNewSession(now);
+                }
+            } else {
+                return createNewSession(now);
+            }
+        }
+
+        function createNewSession(timestamp) {
+            const newId = 'user_' + timestamp + '_' + Math.floor(Math.random() * 1000);
+            localStorage.setItem('uan_chat_session_data', JSON.stringify({
+                id: newId,
+                timestamp: timestamp
+            }));
+            return newId;
+        }
+
+        const sessionId = manageSession();
+
+        // ==========================================
+        // GUARDAR MENSAJES EN LA BASE DE DATOS
+        // ==========================================
+        /**
+         * Tipos de origen de respuesta que se registran en la BD (origen_respuesta):
+         * - 'Mensaje de Bienvenida': El saludo automático al cargar el chat.
+         * - 'Texto Libre': El usuario escribió manualmente con su teclado.
+         * - 'Clic de Menú': El usuario dio clic a una categoría principal (ej. Estudiante, Profesor).
+         * - 'Clic de Usuario': El usuario dio clic a una opción final o submenú.
+         * - 'Menús': El bot respondió inmediatamente desde las opciones fijas (answersDB o flujos estáticos).
+         * - 'Base Local': El bot encontró la carrera/sede en el JSON precargado.
+         * - 'Excel': El bot encontró la respuesta usando Google Sheets (NLP).
+         * - 'IA': El bot consultó a la Inteligencia Artificial (Gemini) porque era complejo.
+         * - 'Sistema': Respuestas automáticas (ej. "¿En qué más te puedo ayudar?", errores).
+         * - 'Mensaje por Defecto': Cuando nada funciona y el bot ofrece el WhatsApp.
+         */
+        function saveMessageToDB(content, sender, origenRespuesta = null) {
+            // ==========================================
+            // FRENO DE EMERGENCIA 2: Apagar Base de Datos
+            // ==========================================
+            if (EMERGENCIA_APAGAR_BASE_DATOS) {
+                return Promise.resolve(null); // Corta la función aquí mismo y no hace el fetch
+            }
+
+            const payload = {
+                codigo_navegador: sessionId,
+                tipo_usuario: currentProfileMenu,
+                quien_escribio: sender === 'user' ? 'Usuario' : 'Bot',
+                mensaje: content,
+                origen_respuesta: origenRespuesta
+            };
+
+            return fetch('/configuracion-chat.php?action=guardar_chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => data && data.id_mensaje ? data.id_mensaje : null)
+            .catch(() => null);
+        }
+
+        let currentOptionsContainer = null;
+        let isProcessing = false;
+        let currentProfileMenu = localStorage.getItem('uan_chat_profile') || 'main';
+        // ==========================================
+        // 2. ESTADO Y CONFIGURACIÓN
+        // ==========================================
+        let chatHistory = [];
+        try {
+            chatHistory = JSON.parse(localStorage.getItem('uan_chat_history')) || [];
+        } catch(e) {
+            chatHistory = [];
+        }
+
+        /**
+         * Carga silenciosa de programas en segundo plano.
+         * Cuando el chatbot arranca en CUALQUIER página del sitio,
+         * si aún no tiene los datos en caché, va a buscarlos a /pregrados
+         * sin que el usuario note nada. Así el buscador siempre funciona.
+         */
+        
+        
+
+
+        /**
+         * Objeto que define los menús de navegación en forma de botones.
+         * Cada clave es un identificador de menú y contiene un arreglo de opciones.
+         * - isBack: true para dar un estilo especial al botón de "Volver al menu anterior".
+         */
+                // ==========================================
+        // 1. BASE DE DATOS LOCAL (MENÚS Y BOTONES)
+        // ==========================================
+        const menus = {
+            hidden_triggers: [
+                { id: 'q_menu_certificados_trigger', isMenu: false, botReply: 'Tengo información sobre certificados para diferentes perfiles. Por favor, selecciona el tuyo:', showMenu: 'q_menu_certificados', keywords: ['certificado', 'certificados', 'constancia', 'constancias', 'notas'] }
+            ],
+            q_menu_certificados: [
+                { id: 'q_certificados_est', text: 'Soy Estudiante', isMenu: false, colorClass: 'color-mango', botReply: 'Solicita tus certificados y constancias de estudio.', links: [{"text": "Solicitar Certificados", "url": "https://www.uan.edu.co/estudiantes#servicios/certificados-contenidos-y-constancias"}] },
+                { id: 'q_certificados_egre', text: 'Soy Egresado', isMenu: false, colorClass: 'color-fresa', botReply: 'Trámites y certificaciones para egresados.', links: [{"text": "Certificaciones", "url": "https://www.uan.edu.co/egresados#servicios/certificaciones-y-tramites"}] },
+                { id: 'q_admin_docente_cert', text: 'Soy Administrativo o Docente', isMenu: false, colorClass: 'color-mora', botReply: 'Puedes solicitar tus certificados laborales a través de la intranet.', links: [{"text": "Solicitar Certificado Laboral", "url": "https://www.uan.edu.co/certificados-laborales"}] },
+                { id: 'cat_inicio', text: '⬅️ Volver al menú inicial', isMenu: true, isBack: true }
+            ],
+
+            main: [
+                { id: 'cat_estudiante', text: '🍋 Estudiante', isMenu: true, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', colorClass: 'color-mango' },
+                { id: 'cat_egresado', text: '🍓 Egresado', isMenu: true, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', colorClass: 'color-fresa' },
+                { id: 'cat_aspirante', text: '🎓 Aspirante', isMenu: true, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', colorClass: 'color-naranja' },
+                { id: 'cat_profesor', text: '🍐 Profesor', isMenu: true, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', colorClass: 'color-pera' },
+                { id: 'cat_administrativo', text: '🍇 Administrativo', isMenu: true, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', colorClass: 'color-uva' },
+                { id: 'cat_conoce', text: '🏛️ Conoce la UAN', isMenu: true, botReply: 'Aquí tienes más información sobre nuestra institución:' }
+],
+
+            // ================= 1. ESTUDIANTES =================
+            cat_estudiante: [
+                { id: 'sub_est_plataformas', text: '💻 Plataformas', isMenu: true },
+                { id: 'sub_est_tramites', text: '📄 Trámites y Fechas', isMenu: true },
+                { id: 'sub_est_pagos', text: '💳 Pagos y Financiación', isMenu: true },
+                { id: 'sub_est_reglamentos', text: '⚖️ Reglamentos y Academia', isMenu: true },
+                { id: 'sub_est_servicios', text: '💙 Servicios y Bienestar', isMenu: true },
+                { id: 'main', text: '⬅️ Volver al menú inicial', isMenu: true, isBack: true }
+            ],
+            sub_est_plataformas: [
+                { id: 'q_campus', text: 'Campus virtual', isMenu: false, botReply: 'Accede al Campus Virtual para tus clases y aulas virtuales.', links: [{"text": "Campus Virtual", "url": "https://campusvirtual.uan.edu.co/"}] },
+                { id: 'q_correo', text: 'Correo institucional', isMenu: false, botReply: 'Accede a tu correo electrónico institucional.', links: [{"text": "Correo Institucional", "url": "https://service.uan.edu.co/#recuperar/correo"}] },
+                { id: 'q_mango', text: 'MANGO', isMenu: false, botReply: 'Accede al portal de estudiantes (MANGO).', links: [{"text": "Acceder a MANGO", "url": "https://service.uan.edu.co/mango/"}] },
+                { id: 'cat_estudiante', text: '⬅️ Volver al menú anterior', isMenu: true, isBack: true }
+            ],
+            sub_est_tramites: [
+                { id: 'q_certificados', text: 'Certificados y constancias', isMenu: false, botReply: 'Solicita tus certificados y constancias de estudio.', links: [{"text": "Solicitar Certificados", "url": "https://www.uan.edu.co/estudiantes#servicios/certificados-contenidos-y-constancias"}] },
+                { id: 'q_calendario', text: 'Calendario académico', isMenu: false, botReply: 'Aquí puedes consultar todas las fechas importantes del periodo en nuestro Calendario Académico único:', links: [{"text": "Ver Calendario Académico", "url": "https://www.uan.edu.co/inscripciones#calendario-academico-semestre-2-2026"}] },
+                { id: 'q_reingresos', text: 'Reingresos', isMenu: false, botReply: 'Consulta los requisitos para tu proceso de reingreso.', links: [{"text": "Ver Reingresos", "url": "https://www.uan.edu.co/estudiantes#servicios/reingresos"}] },
+                { id: 'q_transferencia', text: 'Transferencias', isMenu: false, botReply: 'Información sobre transferencias internas y externas.', links: [{"text": "Transferencias", "url": "https://www.uan.edu.co/estudiantes#servicios/transferencias"}] },
+                { id: 'cat_estudiante', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_est_pagos: [
+                { id: 'q_pecuniarios', text: 'Derechos pecuniarios', isMenu: false },
+                { id: 'q_becas', text: 'Becas', isMenu: false, botReply: 'Contamos con auxilios y becas para apoyarte.', links: [{"text": "Ver Becas", "url": "https://www.uan.edu.co/becas-y-auxilios"}] },
+                { id: 'q_credito', text: 'Crédito', isMenu: false, botReply: 'Opciones de crédito para financiar tus estudios.', links: [{"text": "Crédito UAN", "url": "https://www.uan.edu.co/financiacion#credito-uan"}] },
+                { id: 'q_icetex', text: 'ICETEX', isMenu: false, botReply: 'Información y trámites con ICETEX.', links: [{"text": "ICETEX", "url": "https://www.uan.edu.co/financiacion#icetex"}] },
+                { id: 'cat_estudiante', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_est_reglamentos: [
+                { id: 'q_reglamento', text: 'Reglamento estudiantil', isMenu: false, botReply: 'El Reglamento Estudiantil es tu guía normativa.', links: [{"text": "Ver Reglamento", "url": "https://www.uan.edu.co/estudiantes#reglamento-estudiantil"}] },
+                { id: 'q_reglamento_grado', text: 'Reglamento trabajo de grado', isMenu: false, botReply: 'Conoce las opciones y requisitos para tu trabajo de grado.', links: [{"text": "Reglamento Grado", "url": "https://www.uan.edu.co/estudiantes#reglamento-trabajo-grado"}] },
+                { id: 'q_proficiencia', text: 'Cursos de proficiencia', isMenu: false, botReply: 'Cursos de proficiencia obligatorios para estudiantes.', links: [{"text": "Proficiencia", "url": "https://www.uan.edu.co/estudiantes-cursos-de-proficiencia"}] },
+                { id: 'q_matlab_est', text: 'Matlab', isMenu: false, botReply: 'Manual de uso y licencia de Matlab para Estudiantes.', links: [{"text": "Matlab Estudiantes", "url": "https://www.uan.edu.co/images/institucion/comunidad/estudiantes/documentos/ManualUsoLicenciaMatlabEstudiantes-Oct2017.pdf"}] },
+                { id: 'cat_estudiante', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_est_servicios: [
+                { id: 'q_bienestar', text: 'Bienestar Universitario', isMenu: false, botReply: 'Bienestar Universitario te acompaña con programas de salud, cultura y deporte.', links: [{"text": "Ir a Bienestar", "url": "https://www.uan.edu.co/bienestar-universitario"}] },
+                { id: 'q_crai', text: 'CRAI', isMenu: false, botReply: 'Accede a las bases de datos y recursos de CRAI.', links: [{"text": "CRAI", "url": "https://biblioteca.uan.edu.co/"}] },
+                { id: 'q_jovenes_e', text: 'Jóvenes a la E', isMenu: false, botReply: 'Información sobre el programa Jóvenes a la E.', links: [{"text": "Jóvenes a la E", "url": "https://www.uan.edu.co/estudiantes#servicios/jovenes-a-la-e"}] },
+                { id: 'cat_estudiante', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+
+            // ================= 2. EGRESADOS =================
+            cat_egresado: [
+                { id: 'sub_egre_comunidad', text: '👥 Comunidad Egresados', isMenu: true },
+                { id: 'sub_egre_tramites', text: '📄 Trámites y Certificaciones', isMenu: true },
+                { id: 'main', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_egre_comunidad: [
+                { id: 'q_empleo', text: 'Bolsa de empleo', isMenu: false, botReply: 'Nuestra bolsa de empleo exclusiva para egresados UAN.', links: [{"text": "Bolsa de Empleo", "url": "https://www.uan.edu.co/egresados#empleo"}] },
+                { id: 'q_feria_proy', text: 'Feria de proyección', isMenu: false, botReply: 'Participa en la Feria de Proyección Profesional.', links: [{"text": "Feria de Proyección", "url": "https://www.uan.edu.co/egresados-feria-de-proyeccion-profesional"}] },
+                { id: 'q_act_datos', text: 'Actualización de datos', isMenu: false, botReply: 'Para actualizar tus datos como Egresado, usa el siguiente enlace. Si eres Estudiante, debes hacerlo desde el portal MANGO.', links: [{"text": "Datos Egresado", "url": "https://service.uan.edu.co/#egresado/actualizarDatos"}, {"text": "MANGO Estudiantes", "url": "https://service.uan.edu.co/mango/"}] },
+                { id: 'q_tarjeta_prof', text: 'Tarjeta profesional', isMenu: false, botReply: 'Información para tramitar tu tarjeta profesional.', links: [{"text": "Tarjeta Profesional", "url": "https://www.uan.edu.co/egresados#servicios/tarjeta-profesional"}] },
+                { id: 'cat_egresado', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_egre_tramites: [
+                { id: 'q_certificados_egre', text: 'Certificaciones y trámites', isMenu: false, botReply: 'Trámites y certificaciones para egresados.', links: [{"text": "Certificaciones", "url": "https://www.uan.edu.co/egresados#servicios/certificaciones-y-tramites"}] },
+                { id: 'cat_egresado', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+
+            // ================= 3. ASPIRANTES =================
+            cat_aspirante: [
+                { id: 'q_inscribirse_asp', text: '📝 Inscribirse', isMenu: false, botReply: 'Inicia tu proceso de inscripción. Para ayuda personalizada, escríbenos:', links: [{"text": "Inscripciones", "url": "https://www.uan.edu.co/inscripciones"}, {"text": "💬 Chat WhatsApp", "url": "https://api.whatsapp.com/send/?phone=573223447443&text=Hola,%20quiero%20inscribirme"}] },
+                { id: 'q_whatsapp_asp', text: '💬 Asesoría por WhatsApp', isMenu: false, botReply: 'Nuestro equipo de admisiones está listo para ayudarte con todas tus dudas a través de WhatsApp:', links: [{"text": "💬 Ir a WhatsApp", "url": "https://api.whatsapp.com/send/?phone=573223447443&text=Hola,%20soy%20aspirante%20y%20necesito%20ayuda"}] },
+                { id: 'main', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+
+            // ================= 4. PROFESORES =================
+            cat_profesor: [
+                { id: 'sub_prof_plataformas', text: '💻 Plataformas Docentes', isMenu: true },
+                { id: 'sub_prof_desarrollo', text: '👥 Centro de Excelencia Docente', isMenu: true },
+                { id: 'sub_prof_normativa', text: '⚖️ Normativa', isMenu: true },
+                { id: 'main', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_prof_plataformas: [
+                { id: 'q_pera', text: 'PERA', isMenu: false, botReply: 'Información y servicios dedicados a nuestros docentes (PERA).', links: [{"text": "Portal PERA", "url": "https://service.uan.edu.co/pera/"}] },
+                { id: 'q_correo_prof', text: 'Correo institucional', isMenu: false, botReply: 'Accede a tu correo electrónico institucional docente.', links: [{"text": "Correo Docente", "url": "https://service.uan.edu.co/#recuperar/correo"}] },
+                { id: 'q_campus', text: 'Campus virtual', isMenu: false, botReply: 'Accede al Campus Virtual para tus clases y aulas virtuales.', links: [{"text": "Campus Virtual", "url": "https://campusvirtual.uan.edu.co/"}] },
+                { id: 'q_matlab_prof', text: 'Matlab', isMenu: false, botReply: 'Manual de uso y licencia de Matlab para Docentes e Investigadores.', links: [{"text": "Matlab Profesores", "url": "https://www.uan.edu.co/images/institucion/comunidad/profesores/documentos/ManualUsoLicenciaMatlabDocentesInvestigadores-Oct2017.pdf"}] },
+                { id: 'cat_profesor', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_prof_desarrollo: [
+                { id: 'q_excelencia_docente', text: 'Capacitación Docente', isMenu: false, botReply: 'Centro de Excelencia Docente para la formación de profesores.', links: [{"text": "Excelencia Docente", "url": "https://www.uan.edu.co/profesores#centro-de-excelencia"}] },
+                { id: 'q_capacitacion_docente', text: 'Capacitación docente', isMenu: false, botReply: 'Portafolio de capacitación docente.', links: [{"text": "Capacitación Docente", "url": "https://www.uan.edu.co/images/institucion/comunidad/profesores/documentos/CapacitacionDocente/Portafolio2-2025.pdf"}] },
+                { id: 'cat_profesor', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_prof_normativa: [
+                { id: 'q_estatuto_prof', text: 'Estatuto profesoral', isMenu: false, botReply: 'Conoce el Estatuto Profesoral vigente.', links: [{"text": "Estatuto Profesoral", "url": "https://www.uan.edu.co/profesores#estatuto-profesoral"}] },
+                { id: 'q_reglamento_prof', text: 'Reglamento', isMenu: false, botReply: 'Reglamento de promoción en el escalafón profesoral.', links: [{"text": "Reglamento Docente", "url": "https://www.uan.edu.co/profesores#reglamento-promocion-en-el-escalafon-profesoral"}] },
+                { id: 'cat_profesor', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+
+            // ================= 5. ADMINISTRATIVOS =================
+            cat_administrativo: [
+                { id: 'q_cert_laboral', text: 'Certificado laboral', isMenu: false, botReply: 'Solicita tu certificado laboral como administrativo o docente.', links: [{"text": "Certificado Laboral", "url": "http://sifa.uan.edu.co/index_scripts.php?clase=Certificacion&metodo=certifica"}] },
+                { id: 'q_beneficios_colab', text: 'Beneficios UAN', isMenu: false, botReply: 'Conoce los beneficios institucionales para colaboradores (administrativos y docentes).', links: [{"text": "Beneficios UAN", "url": "https://www.uan.edu.co/beneficios-uan"}] },
+                { id: 'q_convivencia', text: 'Comité de Convivencia', isMenu: false, botReply: 'Información sobre el Comité de Convivencia Laboral.', links: [{"text": "Comité Convivencia", "url": "https://www.uan.edu.co/gestion-humana#comite-convivencia-laboral"}] },
+                { id: 'q_copasst', text: 'Comité COPASST', isMenu: false, botReply: 'Información sobre el Comité Paritario de Seguridad y Salud en el Trabajo (COPASST).', links: [{"text": "Comité COPASST", "url": "https://www.uan.edu.co/gestion-humana#comite-copasst"}] },
+                { id: 'main', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+
+            // ================= 6. CONOCE LA UAN =================
+            cat_conoce: [
+                { id: 'sub_conoce_institucional', text: '🏛️ Institucional', isMenu: true },
+                { id: 'sub_conoce_oferta', text: '🎓 Estudia Con Nosotros', isMenu: true },
+                { id: 'sub_conoce_investigacion', text: '🔬 Investigación e Innovación', isMenu: true },
+                { id: 'sub_conoce_proyeccion', text: '🌍 Proyección y Comunidad', isMenu: true },
+                { id: 'main', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_conoce_institucional: [
+                { id: 'q_quienes', text: '¿Quiénes somos?', isMenu: false },
+                { id: 'q_lideres', text: 'Líderes UAN', isMenu: false, botReply: 'Aquí puedes conocer a las directivas y líderes académicos.', links: [{"text": "Líderes UAN", "url": "https://www.uan.edu.co/lideres-uan"}] },
+                { id: 'q_transparencia', text: 'Transparencia', isMenu: false },
+                { id: 'q_verificar', text: 'Verificación Documentos', isMenu: false },
+                { id: 'h_sedes', apiQuery: 'sedes', text: 'Sedes', isMenu: false, botReply: 'Contamos con sedes a nivel nacional. Selecciona la sede de la UAN de tu interés de la lista:' },
+                { id: 'q_calidad', text: 'SIAC', isMenu: false, botReply: 'Conoce nuestros procesos de autoevaluación, acreditación y el Sistema Interno de Aseguramiento de la Calidad (SIAC).', links: [{"text": "Ver Acreditación y SIAC", "url": "http://acreditacion.uan.edu.co/"}] },
+                { id: 'q_pqrf', text: 'PQRF', isMenu: false },
+                { id: 'cat_conoce', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_conoce_oferta: [
+                { id: 'h_pregrados', apiQuery: 'pregrados', text: 'Pregrados', isMenu: false, botReply: 'Conoce nuestra oferta de carreras profesionales en todo el país. Elige un programa de la lista para ver su información:' },
+                { id: 'h_posgrados', apiQuery: 'posgrados', text: 'Posgrados', isMenu: false, botReply: 'Especializaciones, Maestrías y Doctorados para potenciar tu perfil profesional. Elige un programa de la lista para ver su información:' },
+                { id: 'h_tecnicos', text: 'Técnicos Laborales', isMenu: false, botReply: 'Ofrecemos programas Técnicos Laborales enfocados en habilidades prácticas.', links: [{"text": "Técnicos Laborales", "url": "https://www.uan.edu.co/tecnicos-laborales"}] },
+                { id: 'h_financiacion', text: 'Financiación', isMenu: false },
+                { id: 'q_becas', text: 'Auxilios y becas', isMenu: false, botReply: 'Contamos con auxilios y becas para apoyarte.', links: [{"text": "Ver Becas", "url": "https://www.uan.edu.co/becas-y-auxilios"}] },
+                { id: 'q_jovenes_e', text: 'Jóvenes a la E', isMenu: false, botReply: 'Información sobre el programa Jóvenes a la E.', links: [{"text": "Jóvenes a la E", "url": "https://www.uan.edu.co/estudiantes#servicios/jovenes-a-la-e"}] },
+                { id: 'cat_conoce', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_conoce_investigacion: [
+                { id: 'q_investigacion', text: 'Investigación', isMenu: false, botReply: 'Descubre nuestros semilleros, grupos de investigación e innovación.', links: [{"text": "Investigación e Innovación", "url": "http://investigacion.uan.edu.co/"}] },
+                { id: 'q_laboratorios', text: 'Laboratorios', isMenu: false, botReply: 'Conoce nuestra red de laboratorios para prácticas e investigación.', links: [{"text": "Laboratorios", "url": "https://www.uan.edu.co/laboratorios"}] },
+                { id: 'q_gatt', text: 'GATT', isMenu: false, botReply: 'Gestión de la Apropiación Social del Conocimiento y Transferencia Tecnológica (GATT).', links: [{"text": "Ver GATT", "url": "http://investigacion.uan.edu.co/"}] },
+                { id: 'cat_conoce', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+            sub_conoce_proyeccion: [
+                { id: 'q_movilidad', text: 'Internacionalización', isMenu: false },
+                { id: 'q_continuada', text: 'Educación continuada', isMenu: false, botReply: 'Actualiza tus conocimientos con nuestra oferta de Educación Continuada.', links: [{"text": "Educación Continuada", "url": "https://service.uan.edu.co/#continuada/oferta"}] },
+                { id: 'q_bienestar', text: 'Bienestar universitario', isMenu: false, botReply: 'Bienestar Universitario te acompaña con programas de salud, cultura y deporte.', links: [{"text": "Ir a Bienestar", "url": "https://www.uan.edu.co/bienestar-universitario"}] },
+                { id: 'cat_conoce', text: '⬅️ Volver al menu anterior', isMenu: true, isBack: true }
+            ],
+
+            // ================= MENÚS DE DESAMBIGUACIÓN =================
+            menu_disambig_comite: [
+                { id: 'q_convivencia', text: 'Comité de Convivencia', apiQuery: 'comite de convivencia', isMenu: false, botReply: 'Información sobre el Comité de Convivencia Laboral.', links: [{"text": "Comité Convivencia", "url": "https://www.uan.edu.co/gestion-humana#comite-convivencia-laboral"}] },
+                { id: 'q_copasst', text: 'Comité COPASST', apiQuery: 'copasst', isMenu: false, botReply: 'Información sobre el Comité Paritario de Seguridad y Salud en el Trabajo (COPASST).', links: [{"text": "Comité COPASST", "url": "https://www.uan.edu.co/gestion-humana#comite-copasst"}] },
+                { id: 'main', text: '⬅️ Volver al menú inicial', isMenu: true, isBack: true }
+            ],
+            menu_disambig_beneficios: [
+                { id: 'q_beneficios_est', text: 'Soy Estudiante', apiQuery: 'beneficios estudiantes', isMenu: false, colorClass: 'color-mango', botReply: 'Conoce los beneficios, becas, auxilios y servicios de Bienestar diseñados para nuestros estudiantes.', links: [{"text": "Becas y Auxilios", "url": "https://www.uan.edu.co/becas-y-auxilios"}, {"text": "Bienestar Universitario", "url": "https://www.uan.edu.co/bienestar-universitario"}] },
+                { id: 'q_beneficios_colab', text: 'Soy Administrativo o Docente', apiQuery: 'beneficios administrativos', isMenu: false, colorClass: 'color-uva', botReply: 'Conoce los beneficios institucionales para colaboradores (administrativos y docentes).', links: [{"text": "Beneficios UAN", "url": "https://www.uan.edu.co/beneficios-uan"}] },
+                { id: 'main', text: '⬅️ Volver al menú inicial', isMenu: true, isBack: true }
+            ],
+            menu_disambig_certificado: [
+                { id: 'q_certificados', text: 'Soy Estudiante', apiQuery: 'certificado estudiante', isMenu: false, colorClass: 'color-mango', botReply: 'Solicita tus certificados y constancias de estudio.', links: [{"text": "Solicitar Certificados", "url": "https://www.uan.edu.co/estudiantes#servicios/certificados-contenidos-y-constancias"}] },
+                { id: 'q_certificados_egre', text: 'Soy Egresado', apiQuery: 'certificacion egresado', isMenu: false, colorClass: 'color-fresa', botReply: 'Trámites y certificaciones para egresados.', links: [{"text": "Certificaciones", "url": "https://www.uan.edu.co/egresados#servicios/certificaciones-y-tramites"}] },
+                { id: 'q_cert_laboral', text: 'Soy Administrativo o Docente', apiQuery: 'certificado laboral', isMenu: false, colorClass: 'color-uva', botReply: 'Solicita tu certificado laboral como administrativo o docente.', links: [{"text": "Certificado Laboral", "url": "http://sifa.uan.edu.co/index_scripts.php?clase=Certificacion&metodo=certifica"}] },
+                { id: 'main', text: '⬅️ Volver al menú inicial', isMenu: true, isBack: true }
+            ],
+            menu_disambig_correo: [
+                { id: 'q_correo', text: 'Correo Estudiante', apiQuery: 'correo estudiante', isMenu: false, colorClass: 'color-mango', botReply: 'Accede a tu correo electrónico institucional.', links: [{"text": "Correo Institucional", "url": "https://service.uan.edu.co/#recuperar/correo"}] },
+                { id: 'q_correo_prof', text: 'Correo Profesor', apiQuery: 'correo profesor', isMenu: false, colorClass: 'color-pera', botReply: 'Accede a tu correo electrónico institucional docente.', links: [{"text": "Correo Docente", "url": "https://service.uan.edu.co/#recuperar/correo"}] },
+                { id: 'q_correo_admin', text: 'Correo Administrativo', apiQuery: 'correo administrativo', isMenu: false, colorClass: 'color-uva', botReply: 'Accede a tu correo electrónico institucional como administrativo.', links: [{"text": "Correo Administrativo", "url": "https://service.uan.edu.co/#recuperar/correo"}] },
+                { id: 'main', text: '⬅️ Volver al menú inicial', isMenu: true, isBack: true }
+            ],
+            menu_disambig_reglamento: [
+                { id: 'q_reglamento', text: 'Reglamento Estudiantil', apiQuery: 'reglamento estudiantil', isMenu: false, colorClass: 'color-mango', botReply: 'El Reglamento Estudiantil es tu guía normativa.', links: [{"text": "Ver Reglamento", "url": "https://www.uan.edu.co/estudiantes#reglamento-estudiantil"}] },
+                { id: 'q_reglamento_grado', text: 'Trabajo de Grado', apiQuery: 'trabajo de grado', isMenu: false, colorClass: 'color-mango', botReply: 'Conoce las opciones y requisitos para tu trabajo de grado.', links: [{"text": "Reglamento Grado", "url": "https://www.uan.edu.co/estudiantes#reglamento-trabajo-grado"}] },
+                { id: 'q_reglamento_prof', text: 'Reglamento Docente', apiQuery: 'reglamento profesor', isMenu: false, colorClass: 'color-pera', botReply: 'Reglamento de promoción en el escalafón profesoral.', links: [{"text": "Reglamento Docente", "url": "https://www.uan.edu.co/profesores#reglamento-promocion-en-el-escalafon-profesoral"}] },
+                { id: 'main', text: '⬅️ Volver al menú inicial', isMenu: true, isBack: true }
+            ],
+            menu_disambig_transferencia: [
+                { id: 'q_transferencia', text: 'Soy Estudiante (Transf. interna)', apiQuery: 'transferencia estudiante', isMenu: false, colorClass: 'color-mango', botReply: 'Información sobre transferencias internas y externas.', links: [{"text": "Transferencias", "url": "https://www.uan.edu.co/estudiantes#servicios/transferencias"}] },
+                { id: 'q_transferencia_asp', text: 'Soy Aspirante (Transf. externa)', apiQuery: 'transferencia aspirante', isMenu: false, colorClass: 'color-naranja', botReply: 'Inicia tu proceso de transferencia. Te asesoramos:', links: [{"text": "Transferencias", "url": "https://www.uan.edu.co/inscripciones#servicios/transferencias"}, {"text": "💬 Chat WhatsApp", "url": "https://api.whatsapp.com/send/?phone=573223447443&text=Hola,%20busco%20hacer%20transferencia"}] },
+                { id: 'main', text: '⬅️ Volver al menú inicial', isMenu: true, isBack: true }
+            ],
+            menu_disambig_contrasena: [
+                { id: 'q_pass_mango', text: 'MANGO (Estudiantes)', apiQuery: 'contraseña de mango', isMenu: false, colorClass: 'color-mango', botReply: 'Para recuperar tu contraseña de MANGO, ingresa tu número de documento en el siguiente enlace:', links: [{"text": "🔑 Recuperar Contraseña", "url": "https://service.uan.edu.co/#recuperar/mango"}] },
+                { id: 'q_pass_pera', text: 'PERA (Profesores)', apiQuery: 'ingresar a pera', isMenu: false, colorClass: 'color-pera', botReply: 'Para recuperar tu contraseña de PERA, ingresa tu número de documento en el siguiente enlace:', links: [{"text": "🔑 Recuperar Contraseña", "url": "https://service.uan.edu.co/#recuperar/pera"}] },
+                { id: 'q_pass_uva', text: 'UVA (Administrativos)', apiQuery: 'ingresar a uva', isMenu: false, colorClass: 'color-uva', botReply: 'Para recuperar tu contraseña de UVA, ingresa tu número de documento en el siguiente enlace:', links: [{"text": "🔑 Recuperar Contraseña", "url": "https://service.uan.edu.co/#recuperar/uva"}] },
+                { id: 'q_pass_correo', text: 'Correo Institucional', apiQuery: 'contraseña del correo', isMenu: false, botReply: 'Para recuperar la contraseña de tu Correo Institucional, ingresa tu número de documento en el siguiente enlace:', links: [{"text": "🔑 Recuperar Contraseña", "url": "https://service.uan.edu.co/#recuperar/correo"}] },
+                { id: 'main', text: '⬅️ Volver al menú inicial', isMenu: true, isBack: true }
+            ],
+
+            // ================= RESPUESTAS OCULTAS / IA =================
+            hidden_responses: [
+                { id: 'q_ayuda_general', isMenu: false, botReply: '¡Claro que sí! Estoy aquí para orientarte. Para darte la mejor información, elige tu perfil a continuación o comunícate por WhatsApp:', links: [{"text": "💬 Chat WhatsApp", "url": "https://api.whatsapp.com/send/?phone=573223447443&text=Hola,%20necesito%20ayuda%20o%20m%C3%A1s%20informaci%C3%B3n"}], showMenu: 'main' },
+                { id: 'q_menu_administrativo', isMenu: false, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', showMenu: 'cat_administrativo' },
+                { id: 'q_menu_aspirante', isMenu: false, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', showMenu: 'cat_aspirante' },
+                { id: 'q_menu_egresado', isMenu: false, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', showMenu: 'cat_egresado' },
+                { id: 'q_menu_estudiante', isMenu: false, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', showMenu: 'cat_estudiante' },
+                { id: 'q_menu_profesor', isMenu: false, botReply: '¡Excelente! Para ti tenemos estos servicios donde puedes navegar:', showMenu: 'cat_profesor' },
+                { id: 'q_disambig_beneficios', isMenu: false, botReply: 'Los beneficios varían según tu perfil en la universidad. ¿A qué grupo perteneces?', showMenu: 'menu_disambig_beneficios' },
+                { id: 'q_disambig_certificado', isMenu: false, botReply: 'Tengo información sobre certificados para diferentes perfiles. Por favor, selecciona el tuyo:', showMenu: 'menu_disambig_certificado' },
+                { id: 'q_disambig_comite', isMenu: false, botReply: 'Tenemos información sobre diferentes comités institucionales. ¿Cuál estás buscando?', showMenu: 'menu_disambig_comite' },
+                { id: 'q_disambig_contrasena', isMenu: false, botReply: 'Veo que necesitas ayuda con tu contraseña o acceso. ¿A qué plataforma intentas ingresar?', showMenu: 'menu_disambig_contrasena' },
+                { id: 'q_disambig_correo', isMenu: false, botReply: 'El acceso al correo depende de tu perfil. ¿Cuál es el tuyo?', showMenu: 'menu_disambig_correo' },
+                { id: 'q_disambig_reglamento', isMenu: false, botReply: 'Tenemos diferentes reglamentos según lo que busques. Elige la opción correcta:', showMenu: 'menu_disambig_reglamento' },
+                { id: 'q_disambig_transferencia', isMenu: false, botReply: 'Las transferencias tienen procesos diferentes si eres de la UAN o vienes de otra universidad. Elige tu caso:', showMenu: 'menu_disambig_transferencia' }
+            ]
+        };
+
+        /**
+         * Muestra una animación de "Escribiendo..." ("...") para simular que el bot está procesando.
+         */
+        // ==========================================
+        // 5. FUNCIONES DE INTERFAZ GRÁFICA (UI)
+        // ==========================================
+        function showTyping() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'typing-indicator';
+            typingDiv.id = 'typingIndicator';
+            typingDiv.innerHTML = '<span></span><span></span><span></span>';
+            chatBody.appendChild(typingDiv);
+            scrollToBottom();
+        }
+
+        /**
+         * Oculta (elimina) la animación de "Escribiendo...".
+         */
+        function hideTyping() {
+            const typingDiv = document.getElementById('typingIndicator');
+            if (typingDiv) {
+                typingDiv.remove();
+            }
+        }
+
+        /**
+         * Hace que el área de chat se desplace automáticamente hacia el último mensaje enviado.
+         */
+        function scrollToBottom() {
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        
+        /**
+         * Dibuja los botones (chips) correspondientes a un ID de menú específico.
+         * @param {string} menuId - El identificador del menú a mostrar (ej. 'main', 'cat_pagos').
+         * @param {boolean} isRestore - Indica si se está restaurando el menú desde el historial.
+         */
+        function renderMenu(menuId, isRestore = false) {
+            const items = menus[menuId];
+            if (!items) return;
+
+            // Si el último elemento en el chat ya es un menú de opciones, lo removemos para no apilar duplicados
+            const lastChild = chatBody.lastElementChild;
+            if (lastChild && lastChild.classList.contains('options-container')) {
+                lastChild.remove();
+            }
+
+            if (!isRestore) {
+                localStorage.setItem('uan_chat_lastMenu', menuId);
+            }
+
+            const optionsDiv = document.createElement('div');
+            optionsDiv.className = 'options-container';
+            optionsDiv.dataset.menuId = menuId;
+            // Guardamos la referencia para poder deshabilitar los botones después de usarlos
+            currentOptionsContainer = optionsDiv;
+
+            // Iteramos sobre las opciones del menú para crear un botón por cada una
+            items.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'chip-btn' + (item.isBack ? ' back-btn' : '') + (item.colorClass ? ' ' + item.colorClass : '');
+                btn.innerHTML = item.text;
+                // Al hacer clic, se deshabilita todo el menú actual para evitar doble clic y se procesa la opción
+                btn.onclick = () => {
+                    optionsDiv.classList.add('disabled');
+                    handleChipClick(item);
+                };
+                optionsDiv.appendChild(btn);
+            });
+
+            chatBody.appendChild(optionsDiv);
+            scrollToBottom();
+        }
+
+
+        async function handleChipClick(item) {
+            if (isProcessing) return;
+            isProcessing = true;
+            chatInput.disabled = true;
+            if (typeof sendBtn !== 'undefined' && sendBtn) sendBtn.disabled = true;
+
+            try {
+                if (item.isMenu) {
+                    if (item.id !== 'main') {
+                        currentProfileMenu = item.id;
+                    } else {
+                        currentProfileMenu = 'main';
+                    }
+                    localStorage.setItem('uan_chat_profile', currentProfileMenu);
+
+                    if (!item.isBack) addMessage(item.text, 'user', false, false, 'Clic de Menú');
+                    showTyping();
+                    await new Promise(r => setTimeout(r, 500));
+                    hideTyping();
+                    if (item.botReply) {
+                        addMessage(item.botReply, 'bot', false, false, 'Menús');
+                    }
+                    renderMenu(item.id);
+                } else {
+                    addMessage(item.text, 'user', false, false, 'Clic de Usuario');
+                    showTyping();
+                    
+                    await new Promise(r => setTimeout(r, 700));
+                    hideTyping();
+                    
+                    try {
+                        const queryToSend = item.apiQuery || item.id || item.text;
+                        // Llamamos directamente a processInput para que lea desde Google Sheets localmente
+                        await processInput(queryToSend, true);
+                    } catch(e) {
+                        console.error("Error en API IA de Chip:", e);
+                        addMessage("Ocurrió un error al procesar tu solicitud.", "bot", false, false, 'Sistema');
+                    }
+                }
+            } finally {
+                isProcessing = false;
+                chatInput.disabled = false;
+                if (typeof sendBtn !== 'undefined' && sendBtn) sendBtn.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        
+
+        sendBtn.addEventListener('click', handleTextInput);
+        chatInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') handleTextInput();
+        });
+
+        const charLimitWarning = document.getElementById('charLimitWarning');
+        let warningTimeout;
+        chatInput.addEventListener('input', function() {
+            if (chatInput.value.length >= 250) {
+                charLimitWarning.classList.add('show');
+                clearTimeout(warningTimeout);
+                warningTimeout = setTimeout(() => {
+                    charLimitWarning.classList.remove('show');
+                }, 3000);
+            } else {
+                charLimitWarning.classList.remove('show');
+            }
+        });
+
+        chatBody.addEventListener('click', function(e) {
+            const linkBtn = e.target.closest('.chat-link-btn');
+            if (linkBtn && !linkBtn.dataset.menuTriggered) {
+                linkBtn.dataset.menuTriggered = 'true';
+                linkBtn.style.animation = 'none';
+                linkBtn.style.transform = 'scale(1)';
+                
+                if (linkBtn.target === '_blank') {
+                    showTyping();
+                    setTimeout(() => {
+                        hideTyping();
+                        addMessage("¿En qué más te puedo ayudar?", 'bot', false, false, 'Sistema');
+                    }, 600);
+                } else {
+                    addMessage("¿En qué más te puedo ayudar?", 'bot', false, false, 'Sistema');
+                }
+            }
+        });
+
+                function toTitleCase(str) {
+            if (!str) return '';
+            return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        
+        async function handleTextInput() {
+            if (isProcessing) return;
+            const text = chatInput.value.trim();
+            if (!text) return;
+
+            isProcessing = true;
+            chatInput.disabled = true;
+            if (typeof sendBtn !== 'undefined' && sendBtn) sendBtn.disabled = true;
+
+            try {
+                chatInput.value = '';
+                await processInput(text);
+            } catch (err) {
+                console.error("Error en handleTextInput:", err);
+                hideTyping();
+            } finally {
+                isProcessing = false;
+                chatInput.disabled = false;
+                if (typeof sendBtn !== 'undefined' && sendBtn) sendBtn.disabled = false;
+                chatInput.focus();
+            }
+        }
+
+        /**
+         * Realiza la consulta a la IA mediante Streaming SSE (Server-Sent Events)
+         * Despliega la respuesta token por token en tiempo real con efecto máquina de escribir fluido.
+         */
+        async function fetchStreamIA(text) {
+            const iaUrl = "/configuracion-chat.php";
+            const formData = new FormData();
+            formData.append('chat_ai', '1');
+            formData.append('stream', '1');
+            formData.append('q', text);
+            
+            let rowDiv = null;
+            let msgWrapper = null;
+            let msgDiv = null;
+            let contentSpan = null;
+            let cursorSpan = null;
+            let finalHtml = '';
+            let streamFinished = false;
+            const textQueue = [];
+            let isTypingLoop = false;
+            let receivedAnyData = false;
+            
+            // Crea la burbuja del bot justo cuando llega el primer contenido
+            function ensureBotRow() {
+                if (rowDiv) return;
+                if (typeof hideTyping === 'function') hideTyping();
+                
+                rowDiv = document.createElement('div');
+                rowDiv.className = 'bot-message-row';
+                const img = document.createElement('img');
+                img.src = '/images/admin/ChatBot/GnosUAN-small.png';
+                img.className = 'bot-avatar-chat';
+                img.alt = 'Bot Avatar';
+                rowDiv.appendChild(img);
+                
+                msgWrapper = document.createElement('div');
+                msgWrapper.style.display = 'flex';
+                msgWrapper.style.flexDirection = 'column';
+                msgWrapper.style.maxWidth = '100%';
+                
+                msgDiv = document.createElement('div');
+                msgDiv.className = 'message bot';
+                msgDiv.innerHTML = '<span class="stream-content"></span><span class="typing-cursor">▌</span>';
+                msgWrapper.appendChild(msgDiv);
+                rowDiv.appendChild(msgWrapper);
+                chatBody.appendChild(rowDiv);
+                
+                contentSpan = msgDiv.querySelector('.stream-content');
+                cursorSpan = msgDiv.querySelector('.typing-cursor');
+                scrollToBottom();
+            }
+            
+            // Tokenizador para que etiquetas como <b> o <br> sean atómicas y el texto se escriba letra a letra
+            function tokenize(html) {
+                const tokens = [];
+                const regex = /(<[^>]+>)|([^<]+)/g;
+                let match;
+                while ((match = regex.exec(html)) !== null) {
+                    if (match[1]) {
+                        tokens.push({ isTag: true, val: match[1] });
+                    } else if (match[2]) {
+                        for (let i = 0; i < match[2].length; i++) {
+                            tokens.push({ isTag: false, val: match[2][i] });
+                        }
+                    }
+                }
+                return tokens;
+            }
+            
+            let rawStreamText = '';
+            let textEnqueuedIndex = 0;
+            let linksStarted = false;
+
+            function feedChunkToTypewriter(chunk) {
+                if (!chunk) return;
+                rawStreamText += chunk;
+                if (!linksStarted) {
+                    const linkMatch = rawStreamText.search(/<a\b|\[/i);
+                    if (linkMatch !== -1) {
+                        linksStarted = true;
+                        const convPart = rawStreamText.slice(textEnqueuedIndex, linkMatch);
+                        if (convPart) enqueueText(convPart);
+                        textEnqueuedIndex = linkMatch;
+                    } else {
+                        let toEnqueue = rawStreamText.slice(textEnqueuedIndex);
+                        const lastOpen = toEnqueue.lastIndexOf('<');
+                        const lastClose = toEnqueue.lastIndexOf('>');
+                        if (lastOpen > lastClose) {
+                            toEnqueue = toEnqueue.slice(0, lastOpen);
+                        }
+                        if (toEnqueue) {
+                            enqueueText(toEnqueue);
+                            textEnqueuedIndex += toEnqueue.length;
+                        }
+                    }
+                }
+            }
+
+            function enqueueText(str) {
+                if (!str) return;
+                ensureBotRow();
+                const tokens = tokenize(str);
+                for (let t of tokens) {
+                    textQueue.push(t);
+                }
+                if (!isTypingLoop) {
+                    processTypewriterQueue();
+                }
+            }
+            
+            function processTypewriterQueue() {
+                if (textQueue.length === 0) {
+                    isTypingLoop = false;
+                    if (streamFinished) {
+                        finishBotMessage();
+                    }
+                    return;
+                }
+                isTypingLoop = true;
+                
+                // Ritmo de escritura progresivo, natural y visualmente agradable
+                const step = textQueue.length > 80 ? 3 : (textQueue.length > 30 ? 2 : 1);
+                const batch = textQueue.splice(0, step);
+                for (let token of batch) {
+                    if (token.isTag) {
+                        contentSpan.innerHTML += token.val;
+                    } else {
+                        const textNode = document.createTextNode(token.val);
+                        contentSpan.appendChild(textNode);
+                    }
+                }
+                scrollToBottom();
+                
+                setTimeout(processTypewriterQueue, 16);
+            }
+            
+            function finishBotMessage() {
+                if (cursorSpan) cursorSpan.remove();
+                
+                const contenidoDefinitivo = finalHtml || (contentSpan ? contentSpan.innerHTML : '');
+                
+                // Si la IA devolvió un trigger de menú (ej: q_menu_ o q_disambig_)
+                if (contenidoDefinitivo.startsWith('q_menu_') || contenidoDefinitivo.startsWith('q_disambig_')) {
+                    if (rowDiv) rowDiv.remove();
+                    let matchObjIA = null;
+                    for (const key in menus) {
+                        const found = menus[key].find(item => item.id === contenidoDefinitivo.trim());
+                        if (found) { matchObjIA = found; break; }
+                    }
+                    if (matchObjIA) {
+                        renderAnswer({ botText: matchObjIA.botReply || '', links: matchObjIA.links || [], showMenu: matchObjIA.showMenu || 'CURRENT', origenRespuesta: 'IA (Menú)' });
+                        return;
+                    }
+                }
+                
+                if (msgDiv) {
+                    msgDiv.innerHTML = contenidoDefinitivo;
+                }
+                scrollToBottom();
+                
+                // Guardar en historial local
+                chatHistory.push({ content: contenidoDefinitivo, sender: 'bot', isHtml: true, origenRespuesta: 'Inteligencia Artificial' });
+                localStorage.setItem('uan_chat_history', JSON.stringify(chatHistory));
+                
+                // Guardar en MySQL
+                const savePromise = saveMessageToDB(contenidoDefinitivo, 'bot', 'Inteligencia Artificial');
+                if (savePromise && msgWrapper) {
+                    savePromise.then(id_mensaje => {
+                        if (id_mensaje) {
+                            const feedbackDiv = document.createElement('div');
+                            feedbackDiv.className = 'feedback-container';
+                            
+                            const likeBtn = document.createElement('button');
+                            likeBtn.className = 'feedback-btn like-btn';
+                            likeBtn.title = 'Me sirvió';
+                            likeBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>';
+                            
+                            const dislikeBtn = document.createElement('button');
+                            dislikeBtn.className = 'feedback-btn dislike-btn';
+                            dislikeBtn.title = 'No me sirvió';
+                            dislikeBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"></path></svg>';
+                            
+                            const handleRate = (calificacion) => {
+                                if (likeBtn.disabled) return;
+                                likeBtn.disabled = true;
+                                dislikeBtn.disabled = true;
+                                if (calificacion === 1) likeBtn.classList.add('active-like');
+                                if (calificacion === -1) dislikeBtn.classList.add('active-dislike');
+                                
+                                fetch('/configuracion-chat.php?action=calificar_respuesta', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id_mensaje: id_mensaje, calificacion: calificacion, codigo_navegador: sessionId })
+                                }).catch(() => {});
+                            };
+                            
+                            likeBtn.onclick = () => handleRate(1);
+                            dislikeBtn.onclick = () => handleRate(-1);
+                            feedbackDiv.appendChild(likeBtn);
+                            feedbackDiv.appendChild(dislikeBtn);
+                            msgWrapper.appendChild(feedbackDiv);
+                            scrollToBottom();
+                        }
+                    });
+                }
+            }
+            
+            function consumirLineasSse(lineas) {
+                for (let i = 0; i < lineas.length; i++) {
+                    const line = lineas[i].trim();
+                    if (!line.startsWith("data: ")) continue;
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        if (data.chunk) {
+                            receivedAnyData = true;
+                            feedChunkToTypewriter(data.chunk);
+                        }
+                        if (data.final_html) {
+                            finalHtml = data.final_html;
+                            receivedAnyData = true;
+                            if (textQueue.length === 0 && !contentSpan) {
+                                const buttonRegex = /(<a\b[^>]*class=['"][^'"]*chat-link-btn[^'"]*['"][^>]*>[\s\S]*?<\/a>)/gi;
+                                let convText = finalHtml.replace(buttonRegex, '').trim().replace(/(<br\s*\/?>\s*)+$/gi, '');
+                                enqueueText(convText || finalHtml);
+                            }
+                        }
+                    } catch(e) {}
+                }
+            }
+
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 90000);
+
+            try {
+                const response = await fetch(iaUrl, {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal
+                });
+                if (!response.ok) throw new Error("HTTP " + response.status);
+                
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = '';
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop();
+                    consumirLineasSse(lines);
+                }
+
+                if (buffer && buffer.trim()) {
+                    consumirLineasSse(buffer.split("\n"));
+                }
+
+                if (finalHtml && finalHtml.trim() === 'q_desconocido') {
+                    if (rowDiv) rowDiv.remove();
+                    if (typeof hideTyping === 'function') hideTyping();
+                    return 'desconocido';
+                }
+                
+                if (!receivedAnyData) {
+                    throw new Error("Stream vacio o sin datos");
+                }
+                
+                streamFinished = true;
+                if (!isTypingLoop && textQueue.length === 0) {
+                    finishBotMessage();
+                }
+                
+                return true;
+            } catch(err) {
+                console.warn("Fallo el streaming SSE:", err);
+                if (err && err.name === 'AbortError' && receivedAnyData) {
+                    streamFinished = true;
+                    if (!isTypingLoop && textQueue.length === 0) {
+                        finishBotMessage();
+                    }
+                    return true;
+                }
+                if (rowDiv) rowDiv.remove();
+                if (typeof hideTyping === 'function') hideTyping();
+                if (err && err.name === 'AbortError') return 'timeout';
+                return false;
+            } finally {
+                clearTimeout(timer);
+            }
+        }
+
+        async function processInput(text, skipUserMessage = false) {
+            if (currentOptionsContainer) {
+                currentOptionsContainer.classList.add('disabled');
+            }
+
+            // INTERCEPTAMOS TEXTOS CLAVE PARA AUTOCOMPLETADO
+            const txt = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+            // 1. Mostrar inmediatamente el mensaje del usuario y estado "escribiendo"
+            if (!skipUserMessage) {
+                addMessage(text, 'user', false, false, 'Texto Libre');
+            }
+            showTyping();
+
+            // =========================================================
+            // PROTECCIÓN FRONTEND: Límite de longitud extrema (Anti-Spam)
+            // =========================================================
+            if (text.length > 1000) {
+                setTimeout(() => {
+                    hideTyping();
+                    const fallbackMsg = `Recuerda que soy tu asistente de navegación en la UAN 🤗. Tu consulta es bastante extensa; para darte la mejor orientación personalizada, puedes chatear directamente con nosotros por WhatsApp:<br><br><a href="https://api.whatsapp.com/send/?phone=573223447443&text=Hola,%20necesito%20asesor%C3%ADa" target="_blank" class="chat-link-btn">💬 Asesoría por WhatsApp</a>`;
+                    addMessage(fallbackMsg, 'bot', true, false, 'Sistema');
+                    setTimeout(() => { renderMenu(currentProfileMenu); }, 600);
+                }, 500);
+                return;
+            }
+            // =========================================================
+
+            const saludosComunes = ['hola', 'holaaa', 'ola', 'buenas', 'buenos dias', 'buenas tardes', 'buenas noches', 'saludos', 'hello', 'hi', 'oli', 'buen dia'];
+            if (saludosComunes.includes(txt)) {
+                setTimeout(() => {
+                    hideTyping();
+                    renderAnswer({ botText: '¡Hola! 👋 Soy tu Guía UAN. Estoy aquí para orientarte.<br><br>Para darte la mejor información, cuéntame ¿cuál es tu perfil?', showMenu: 'main' });
+                    setTimeout(() => { renderMenu('main'); }, 600);
+                }, 400);
+                return;
+            }
+
+            // ====== 2. LECTURA DIRECTA DE LA VARIABLE LOCAL (MENÚS) ======
+            try {
+                const renderRow = (optionInfo, origen = 'Base Local') => {
+                    hideTyping();
+                    
+                    let finalBotText = optionInfo.botReply || optionInfo.text || '';
+                    finalBotText = finalBotText.replace('Derechos Pecuniarios', '<strong><u>Derechos Pecuniarios</u></strong>')
+                                               .replace('Descargar Recibos', '<strong><u>Descargar Recibos</u></strong>');
+
+                    renderAnswer({ 
+                        botText: finalBotText, 
+                        links: optionInfo.links || [], 
+                        showMenu: optionInfo.showMenu || 'CURRENT', 
+                        origenRespuesta: origen 
+                    });
+                    
+                    const nextMenu = (optionInfo.showMenu || 'CURRENT') === 'CURRENT' ? currentProfileMenu : optionInfo.showMenu;
+                    setTimeout(() => { renderMenu(nextMenu); }, 1600);
+                };
+
+                let matchObj = null;
+                const exactId = text.trim();
+                for (const key in menus) {
+                    const found = menus[key].find(item => item.id === exactId);
+                    if (found) {
+                        matchObj = found;
+                        break;
+                    }
+                }
+
+                if (matchObj) {
+                    renderAnswer({
+                        botText: matchObj.botReply || '',
+                        links: matchObj.links || [],
+                        showMenu: matchObj.showMenu || 'CURRENT',
+                        origenRespuesta: skipUserMessage ? 'Menús' : 'Base Local'
+                    });
+                    return;
+                }
+
+                const mensajeOrientacion = `Recuerda que soy tu asistente de navegación en la UAN 🤗. Para asesoría directa sobre inscripciones, precios o dudas de programas, chatea directamente con un asesor por WhatsApp:<br><br><a href="https://api.whatsapp.com/send/?phone=573223447443&text=Hola,%20necesito%20asesor%C3%ADa%20personalizada" target="_blank" class="chat-link-btn">💬 Asesoría por WhatsApp</a>`;
+
+                // ====== 2. CONSULTA DIRECTA A LA INTELIGENCIA ARTIFICIAL (Streaming SSE con NLP) ======
+                if (window.ReadableStream && window.TextDecoder) {
+                    try {
+                        const streamOk = await fetchStreamIA(text);
+                        if (streamOk === true) return;
+                        if (streamOk === 'timeout' || streamOk === 'desconocido') {
+                            hideTyping();
+                            addMessage(mensajeOrientacion, 'bot', true, false, 'Mensaje por Defecto');
+                            return;
+                        }
+                    } catch (errStream) {
+                        console.warn("Fallo el streaming SSE, recurriendo al modo síncrono...", errStream);
+                    }
+                }
+
+                // ====== 3. MODO SÍNCRONO DE RESPALDO (Fallback si el streaming no estuviera disponible) ======
+                try {
+                    const iaUrl = "/configuracion-chat.php";
+                    const fallbackFormData = new FormData();
+                    fallbackFormData.append('chat_ai', '1');
+                    fallbackFormData.append('q', text);
+
+                    const fallbackController = new AbortController();
+                    const fallbackTimer = setTimeout(() => fallbackController.abort(), 25000);
+                    let fetchOptions = { method: 'POST', body: fallbackFormData, signal: fallbackController.signal };
+                    let iaRes;
+                    try {
+                        iaRes = await fetch(iaUrl, fetchOptions);
+                        if (!iaRes.ok && (iaRes.status === 499 || iaRes.status === 502 || iaRes.status === 504)) {
+                            await new Promise(r => setTimeout(r, 1000));
+                            iaRes = await fetch(iaUrl, fetchOptions);
+                        }
+                    } finally {
+                        clearTimeout(fallbackTimer);
+                    }
+                    
+                    if (iaRes.ok) {
+                        const iaRawText = await iaRes.text();
+                        let iaData;
+                        try {
+                            iaData = JSON.parse(iaRawText);
+                        } catch (err) { throw new Error("No es JSON"); }
+                        
+                        if (iaData && iaData.is_rag === true && iaData.respuesta && iaData.respuesta !== "q_desconocido") {
+                            const respuestaStr = iaData.respuesta.trim();
+                            if (respuestaStr.startsWith('q_menu_') || respuestaStr.startsWith('q_disambig_')) {
+                                let matchObjIA = null;
+                                for (const key in menus) {
+                                    const found = menus[key].find(item => item.id === respuestaStr);
+                                    if (found) {
+                                        matchObjIA = found;
+                                        break;
+                                    }
+                                }
+                                if (matchObjIA) {
+                                    renderAnswer({ botText: matchObjIA.botReply || '', links: matchObjIA.links || [], showMenu: matchObjIA.showMenu || 'CURRENT', origenRespuesta: 'IA (Menú)' });
+                                    return;
+                                }
+                            }
+                            hideTyping();
+                            addMessage(respuestaStr, 'bot', true, false, 'Inteligencia Artificial');
+                            return;
+                        }
+                    } else {
+                        console.error("HTTP no OK:", iaRes.status);
+                    }
+                } catch (e) {
+                    console.error("Error contactando al proxy de IA Gemini:", e);
+                }
+            } catch (errorMenu) {
+                console.error("Error procesando los menús locales:", errorMenu);
+            }
+
+            // ====== 4. SI LA IA FALLA, MOSTRAMOS ORIENTACIÓN Y EL CAMPO SIGUE ACTIVO ======
+            hideTyping();
+            const fallbackMsg = `Recuerda que soy tu asistente de navegación en la UAN 🤗. Para asesoría directa sobre inscripciones, precios o dudas de programas, chatea directamente con un asesor por WhatsApp:<br><br><a href="https://api.whatsapp.com/send/?phone=573223447443&text=Hola,%20necesito%20asesor%C3%ADa%20personalizada" target="_blank" class="chat-link-btn">💬 Asesoría por WhatsApp</a>`;
+            addMessage(fallbackMsg, 'bot', true, false, 'Mensaje por Defecto');
+            // UX: No mostrar el menú repetitivamente después del fallback
+        }
+
+        /**
+         * Wrapper para simplificar el llamado a showAutocomplete
+         */
+        function renderAnswer(answerData) {
+            let linksHtml = '';
+
+            if (answerData.links && answerData.links.length > 0) {
+                answerData.links.forEach(l => {
+                    let safeUrl = l.url ? l.url.trim() : '';
+                    if (safeUrl && !safeUrl.startsWith('http') && !safeUrl.startsWith('/')) {
+                        safeUrl = 'https://' + safeUrl;
+                    }
+                    
+                    // Adaptar las URLs del servidor original al servidor de pruebas actual
+                    if (safeUrl.includes('www.uan.edu.co')) {
+                        safeUrl = safeUrl.replace('https://www.uan.edu.co', BASE_DOMAIN)
+                                         .replace('http://www.uan.edu.co', BASE_DOMAIN);
+                    }
+                    
+                    // Limpieza en caso de doble URL errónea proveniente de Joomla o Excel
+                    if (safeUrl.includes(BASE_DOMAIN + '/https://')) {
+                        safeUrl = safeUrl.replace(BASE_DOMAIN + '/', '');
+                    }
+
+                    const isInternal = safeUrl.startsWith(BASE_DOMAIN) || safeUrl.startsWith('/');
+                    const target = isInternal ? '_self' : '_blank';
+                    linksHtml += '<a href="' + safeUrl + '" class="chat-link-btn" target="' + target + '">' + l.text + '</a>';
+                });
+            }
+
+            hideTyping();
+            if (linksHtml) {
+                const botHtml = answerData.botText + '<div style="margin-top:10px;display:flex;flex-wrap:wrap;">' + linksHtml + '</div>';
+                addMessage(botHtml, 'bot', true, false, answerData.origenRespuesta);
+            } else {
+                // Sin links ni selector dinámico: texto informativo solamente
+                addMessage(answerData.botText, 'bot', true, false, answerData.origenRespuesta);
+            }
+        }
+
+        /**
+         * Agrega un mensaje (burbuja de texto) al contenedor de la conversación.
+         * @param {string} content - El texto o HTML a mostrar.
+         * @param {string} sender - Quién envía el mensaje ('bot' o 'user'). Define el estilo de la burbuja.
+         * @param {boolean} isHtml - 'true' si el contenido tiene etiquetas HTML que deben interpretarse. 'false' por defecto.
+         * @param {boolean} skipSave - Evita guardar el mensaje en el historial (útil al restaurar).
+         */
+        function addMessage(content, sender, isHtml = false, skipSave = false, origenRespuesta = null) {
+            let savePromise = null;
+            if (!skipSave) {
+                chatHistory.push({ content, sender, isHtml, origenRespuesta });
+                localStorage.setItem('uan_chat_history', JSON.stringify(chatHistory));
+                savePromise = saveMessageToDB(content, sender, origenRespuesta);
+            }
+
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'message ' + sender;
+            if (isHtml) {
+                msgDiv.innerHTML = content;
+            } else {
+                msgDiv.textContent = content; // Para texto plano, usamos textContent para evitar ataques XSS
+            }
+
+            let messageContainer = msgDiv;
+
+            // Si es un mensaje del bot, se envuelve en un contenedor flex para poner su avatar al lado
+            if (sender === 'bot') {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'bot-message-row';
+                const img = document.createElement('img');
+                img.src = '/images/admin/ChatBot/GnosUAN-small.png';
+                img.className = 'bot-avatar-chat';
+                img.alt = 'Bot Avatar';
+                rowDiv.appendChild(img);
+                
+                const msgWrapper = document.createElement('div');
+                msgWrapper.style.display = 'flex';
+                msgWrapper.style.flexDirection = 'column';
+                msgWrapper.style.maxWidth = '100%';
+                msgWrapper.appendChild(msgDiv);
+                
+                rowDiv.appendChild(msgWrapper);
+                chatBody.appendChild(rowDiv);
+                messageContainer = msgWrapper;
+            } else {
+                // Si es del usuario, se agrega la burbuja directamente (se alinea a la derecha mediante CSS)
+                chatBody.appendChild(msgDiv);
+            }
+            scrollToBottom();
+            
+            // Añadir botones de calificación si es IA y se acaba de guardar
+            if (!skipSave && sender === 'bot' && origenRespuesta === 'Inteligencia Artificial' && savePromise) {
+                savePromise.then(id_mensaje => {
+                    if (id_mensaje) {
+                        const feedbackDiv = document.createElement('div');
+                        feedbackDiv.className = 'feedback-container';
+                        
+                        const likeBtn = document.createElement('button');
+                        likeBtn.className = 'feedback-btn like-btn';
+                        likeBtn.title = 'Me sirvió';
+                        likeBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>';
+                        
+                        const dislikeBtn = document.createElement('button');
+                        dislikeBtn.className = 'feedback-btn dislike-btn';
+                        dislikeBtn.title = 'No me sirvió';
+                        dislikeBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3"></path></svg>';
+                        
+                        const handleRate = (calificacion) => {
+                            if(likeBtn.disabled) return;
+                            likeBtn.disabled = true;
+                            dislikeBtn.disabled = true;
+                            if(calificacion === 1) likeBtn.classList.add('active-like');
+                            if(calificacion === -1) dislikeBtn.classList.add('active-dislike');
+                            
+                            fetch('/configuracion-chat.php?action=calificar_respuesta', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id_mensaje: id_mensaje, calificacion: calificacion, codigo_navegador: sessionId })
+                            }).catch(() => {});
+                        };
+                        
+                        likeBtn.onclick = () => handleRate(1);
+                        dislikeBtn.onclick = () => handleRate(-1);
+                        
+                        feedbackDiv.appendChild(likeBtn);
+                        feedbackDiv.appendChild(dislikeBtn);
+                        messageContainer.appendChild(feedbackDiv);
+                        scrollToBottom();
+                    }
+                });
+            }
+        }
+
+        /**
+         * Evento para abrir y cerrar la ventana de chat cuando se da clic en el botón flotante principal.
+         */
+        chatToggle.addEventListener('click', function () {
+            chatWindow.classList.toggle('active'); // Alterna la visibilidad de la ventana de chat
+            chatToggle.classList.toggle('active'); // Alterna el ícono del botón flotante (ícono de chat <-> 'X' para cerrar)
+            
+            // Guardar estado en sessionStorage
+            sessionStorage.setItem('uan_chat_isOpen', chatWindow.classList.contains('active'));
+
+            // Posicionar dinámicamente la ventana del chat al lado del botón
+            if (chatWindow.classList.contains('active')) {
+                setTimeout(scrollToBottom, 300);
+            }
+        });
+
+        // Evento para cerrar la ventana desde la X interna del chat
+        innerCloseBtn.addEventListener('click', function() {
+            chatWindow.classList.remove('active');
+            chatToggle.classList.remove('active');
+            sessionStorage.setItem('uan_chat_isOpen', 'false');
+        });
+
+        // Función para restaurar el estado desde sessionStorage al cambiar de página
+        function restoreState() {
+            const isOpen = sessionStorage.getItem('uan_chat_isOpen') === 'true';
+            if (isOpen) {
+                chatWindow.classList.add('active');
+                chatToggle.classList.add('active');
+            }
+
+            if (chatHistory.length > 0) {
+                // Restaurar mensajes desde el historial
+                chatHistory.forEach(msg => {
+                    addMessage(msg.content, msg.sender, msg.isHtml, true, msg.origenRespuesta);
+                });
+                
+
+                
+                // Restaurar el menú de roles únicamente si solo existe el saludo inicial y aún no ha conversado
+                if (chatHistory.length <= 1) {
+                    const lastMenu = localStorage.getItem('uan_chat_lastMenu') || 'main';
+                    renderMenu(lastMenu, true);
+                }
+                
+                // Forzamos el scroll hacia abajo en varios momentos para dar tiempo a que las imágenes carguen
+                setTimeout(scrollToBottom, 100);
+                setTimeout(scrollToBottom, 500);
+                setTimeout(scrollToBottom, 1000);
+            } else {
+                // Comportamiento por defecto la primera vez
+                addMessage("¡Hola! 👋 Soy tu Guía UAN. Estoy aquí para orientarte.<br><br>Si no sabes dónde está algo en el sitio web, ¡yo te llevo!<br><br>Para empezar, selecciona tu perfil:", "bot", true, false, 'Mensaje de Bienvenida');
+                setTimeout(() => {
+                    renderMenu('main');
+                }, 500);
+            }
+        }
+
+        // Llamar a restaurar estado al iniciar
+        restoreState();
+
+        // ==========================================
+        // LÓGICA DE PROACTIVIDAD (BURBUJA FLOTANTE MINI)
+        // ==========================================
+        function initProactiveBot() {
+            // Usamos el sessionId global (generado por manageSession de 48 horas)
+            const proactiveKey = 'uan_proactive_fired_' + sessionId;
+
+            // Verificar si en ESTA sesión ya se mostró la burbuja
+            if (localStorage.getItem(proactiveKey) === 'true') return;
+
+            // 1. Inyectar los estilos CSS de la burbuja dinámicamente
+            const style = document.createElement('style');
+            style.innerHTML = `
+                #uan-proactive-bubble {
+                    position: fixed;
+                    bottom: 35px; /* Alineado con el botón del chat */
+                    left: 90px; /* Aparece a la derecha del botón del chat */
+                    background: #ffffff;
+                    border-radius: 12px;
+                    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+                    padding: 12px 28px 12px 16px;
+                    max-width: 250px;
+                    z-index: 2147483646;
+                    font-family: 'Inter', sans-serif;
+                    font-size: 13px;
+                    color: #1e293b;
+                    opacity: 0;
+                    pointer-events: none;
+                    transform: translateX(-15px);
+                    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    border: 1px solid #e2e8f0;
+                }
+                #uan-proactive-bubble::before {
+                    content: '';
+                    position: absolute;
+                    left: -7px;
+                    top: 50%; /* Centrado verticalmente apuntando al avatar */
+                    transform: translateY(-50%);
+                    border-top: 8px solid transparent;
+                    border-bottom: 8px solid transparent;
+                    border-right: 8px solid #ffffff;
+                    filter: drop-shadow(-2px 0px 1px rgba(0,0,0,0.05));
+                }
+                #uan-proactive-bubble.show {
+                    opacity: 1;
+                    pointer-events: auto;
+                    transform: translateX(0);
+                }
+                .bubble-close {
+                    position: absolute;
+                    top: 4px;
+                    right: 8px;
+                    font-size: 18px;
+                    color: #94a3b8;
+                    cursor: pointer;
+                    line-height: 1;
+                    transition: color 0.2s;
+                }
+                .bubble-close:hover {
+                    color: #ef4444;
+                }
+                .bubble-text {
+                    cursor: pointer;
+                    line-height: 1.4;
+                    font-weight: 500;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // 2. Determinar el mensaje según la URL
+            let saludo = "¡Hola! 👋 Veo que estás explorando. ¿Necesitas ayuda rápida?";
+            const url = window.location.href.toLowerCase();
+
+            if (url.includes('grados') || url.includes('egresado')) {
+                saludo = "¡Hola futuro egresado! 🎓 ¿Dudas sobre los requisitos de grado?";
+            } else if (url.includes('matricula') || url.includes('inscripcion')) {
+                saludo = "¡Hola! 📝 ¿Te ayudo con tu matrícula o fechas de inscripción?";
+            } else if (url.includes('biblioteca') || url.includes('crai')) {
+                saludo = "¡Hola! 📚 ¿Necesitas saber cómo sacar un libro de la biblioteca?";
+            }
+
+            // 3. Crear el HTML de la burbuja
+            const bubble = document.createElement('div');
+            bubble.id = 'uan-proactive-bubble';
+            bubble.innerHTML = `
+                <div class="bubble-close" id="bubbleCloseBtn" title="Cerrar">×</div>
+                <div class="bubble-text" id="bubbleTextBtn">
+                    ${saludo}
+                </div>
+            `;
+            document.body.appendChild(bubble);
+
+            // 4. Lógica de Interacción
+            const closeBtn = document.getElementById('bubbleCloseBtn');
+            const textBtn = document.getElementById('bubbleTextBtn');
+
+            // Si cierra la burbuja con la X
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                bubble.classList.remove('show');
+                localStorage.setItem(proactiveKey, 'true');
+            });
+
+            // Si hace clic en el texto para pedir ayuda
+            textBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                bubble.classList.remove('show'); // Ocultar burbuja
+                localStorage.setItem(proactiveKey, 'true');
+
+                // Abrir el chat y enviar el mensaje
+                setTimeout(() => {
+                    if (!chatWindow.classList.contains('active')) {
+                        chatToggle.click();
+                    }
+                    // Mandar el saludo usando la categoría estándar para no dañar las gráficas
+                    addMessage(saludo, "bot", false, false, 'Mensaje de Bienvenida');
+                }, 100);
+            });
+
+            // 5. Temporizador para mostrar la burbuja
+            setTimeout(() => {
+                const isChatOpen = chatWindow.classList.contains('active');
+                if (isChatOpen) {
+                    localStorage.setItem(proactiveKey, 'true');
+                    return; 
+                }
+                
+                bubble.classList.add('show');
+                localStorage.setItem(proactiveKey, 'true'); // Marcar que ya se le mostró
+
+                // 6. Desaparecer automáticamente después de 8 segundos
+                setTimeout(() => {
+                    bubble.classList.remove('show');
+                }, 8000);
+
+            }, 8000);    // 8 segundos para que no esperes tanto
+        }
+
+        // Iniciar el sistema proactivo
+        initProactiveBot();
+
+    })();
+</script>
+
+
+
